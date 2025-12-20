@@ -602,16 +602,16 @@ Mapper18 map18(
 );
 
 //*****************************************************************************//
-// Name   : BNROM                                                              //
-// Mappers: 34                                                                 //
+// Name   : BNROM, NINA-001, RET-CUFROM                                        //
+// Mappers: 34, 29                                                             //
 // Status : Working                                                            //
 // Notes  :                                                                    //
-// Games  : Mashou, Deadly Towers                                              //
+// Games  : Mashou, Deadly Towers, the 3 Glider games (29)                     //
 //*****************************************************************************//
 Mapper34 map34(
 	.clk        (clk),
 	.ce         (ce),
-	.enable     (me[34]),
+	.enable     (me[34] | me[29]),
 	.flags      (flags),
 	.prg_ain    (prg_ain),
 	.prg_aout_b (prg_addr_b),

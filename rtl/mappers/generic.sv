@@ -402,6 +402,7 @@ endmodule
 
 
 // 34 - BxROM or NINA-001
+// 29 - RET-CUFROM
 module Mapper34(
 	input        clk,         // System clock
 	input        ce,          // M2 ~cpu_clk
@@ -456,6 +457,8 @@ reg [5:0] prg_bank;
 reg [3:0] chr_bank_0, chr_bank_1;
 
 wire NINA = (flags[13:11] != 0); // NINA is used when there is more than 8kb of CHR
+wire mapper29 = (flags[7:0] == 29); // Simple homebrew mapper, close enough to merge
+
 always @(posedge clk)
 if (~enable) begin
 	prg_bank <= 0;
@@ -466,7 +469,12 @@ end else if (SaveStateBus_load) begin
 	chr_bank_0 <= SS_MAP1[ 9: 6];
 	chr_bank_1 <= SS_MAP1[13:10];
 end else if (ce && prg_write) begin
-	if (!NINA) begin // BxROM
+	if (mapper29) begin
+		if (prg_ain[15]) begin
+			prg_bank   <= {3'b000, prg_din[4:2]};
+			chr_bank_0 <= {2'b00, prg_din[1:0]};
+		end
+	end else if (!NINA) begin // BxROM
 		if (prg_ain[15])
 			prg_bank <= prg_din[5:0]; //[1:0] offical, [5:0] oversize
 	end else begin // NINA
@@ -484,13 +492,18 @@ assign SS_MAP1_BACK[ 9: 6] = chr_bank_0;
 assign SS_MAP1_BACK[13:10] = chr_bank_1;
 assign SS_MAP1_BACK[63:14] = 50'b0; // free to be used
 
-wire [21:0] prg_aout_tmp = {1'b0, prg_bank, prg_ain[14:0]};
-assign chr_allow = flags[15];
-assign chr_aout = {6'b10_0000, chr_ain[12] == 0 ? chr_bank_0 : chr_bank_1, chr_ain[11:0]};
-assign vram_ce = chr_ain[13];
-assign vram_a10 = flags[14] ? chr_ain[10] : chr_ain[11];
+wire [5:0] prg_bank_sel = (mapper29 && prg_ain[14]) ? 6'h07 : prg_bank;
+wire [21:0] prg_aout_tmp = mapper29 ?
+	{2'b00, prg_bank_sel, prg_ain[13:0]} :
+	{1'b0, prg_bank_sel, prg_ain[14:0]};
 
-wire prg_is_ram = (prg_ain >= 'h6000 && prg_ain < 'h8000) && NINA;
+assign chr_allow = flags[15];
+assign chr_aout = mapper29 ? {5'b1_0000, chr_bank_0, chr_ain[12:0]} :
+	{6'b10_0000, chr_ain[12] == 0 ? chr_bank_0 : chr_bank_1, chr_ain[11:0]};
+assign vram_ce = chr_ain[13];
+assign vram_a10 = mapper29 ? chr_ain[10] : flags[14] ? chr_ain[10] : chr_ain[11];
+
+wire prg_is_ram = (prg_ain >= 'h6000 && prg_ain < 'h8000) && (NINA || mapper29);
 assign prg_allow = prg_ain[15] && !prg_write || prg_is_ram;
 
 wire [21:0] prg_ram = {9'b11_1100_000, prg_ain[12:0]};
